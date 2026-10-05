@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  INSTRUCTOR
+}
+
+enum CertificateType {
+  NON_AGONISTICO
+  AGONISTICO
+}
+
+enum EnrollmentStatus {
+  ATTIVA
+  SOSPESA
+  TERMINATA
+}
+
+enum PaymentMethod {
+  CONTANTI
+  BONIFICO
+  POS
+  ALTRO
+}
+
+enum PaymentReason {
+  QUOTA_ASSOCIATIVA
+  CORSO
+  ALTRO
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  firstName          String
+  lastName           String
+  phone              String?
+  role               Role     @default(INSTRUCTOR)
+  passwordHash       String
+  mustChangePassword Boolean  @default(true)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  courses        Course[]
+  createdMembers Member[] @relation("MemberCreatedBy")
+}
+
+model Member {
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  birthDate     DateTime? @db.Date
+  birthPlace    String?
+  fiscalCode    String?
+  address       String?
+  city          String?
+  zip           String?
+  cardNumber    String?
+  notes         String?
+  incomplete    Boolean   @default(false)
+  createdById   String?
+  createdBy     User?     @relation("MemberCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  certificates MedicalCertificate[]
+  enrollments  Enrollment[]
+  payments     Payment[]
+  attendances  Attendance[]
+
+  @@index([lastName, firstName])
+}
+
+model MedicalCertificate {
+  id         String          @id @default(cuid())
+  memberId   String
+  member     Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  type       CertificateType @default(NON_AGONISTICO)
+  issueDate  DateTime?       @db.Date
+  expiryDate DateTime        @db.Date
+  createdAt  DateTime        @default(now())
+
+  @@index([expiryDate])
+}
+
+model Course {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  location     String?
+  price        Decimal?  @db.Decimal(10, 2)
+  startDate    DateTime  @db.Date
+  endDate      DateTime  @db.Date
+  active       Boolean   @default(true)
+  instructorId String?
+  instructor   User?     @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  slots       CourseSlot[]
+  lessons     Lesson[]
+  enrollments Enrollment[]
+  payments    Payment[]
+}
+
+model CourseSlot {
+  id        String @id @default(cuid())
+  courseId  String
+  course    Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// 1 = lunedì ... 7 = domenica (ISO)
+  weekday   Int
+  /// "HH:mm"
+  startTime String
+  endTime   String
+}
+
+model Lesson {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  startTime String
+  endTime   String
+  cancelled Boolean  @default(false)
+  notes     String?
+
+  attendances Attendance[]
+
+  @@unique([courseId, date, startTime])
+  @@index([date])
+}
+
+model Enrollment {
+  id         String           @id @default(cuid())
+  memberId   String
+  member     Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime         @default(now()) @db.Date
+  status     EnrollmentStatus @default(ATTIVA)
+
+  @@unique([memberId, courseId])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  memberId  String
+  member    Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  courseId  String?
+  course    Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  amount    Decimal       @db.Decimal(10, 2)
+  date      DateTime      @db.Date
+  method    PaymentMethod @default(CONTANTI)
+  reason    PaymentReason @default(CORSO)
+  period    String?
+  notes     String?
+  createdAt DateTime      @default(now())
+
+  @@index([date])
+}
+
+model Attendance {
+  id       String  @id @default(cuid())
+  lessonId String
+  lesson   Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  present  Boolean @default(true)
+
+  @@unique([lessonId, memberId])
+}
