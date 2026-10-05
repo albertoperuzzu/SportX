@@ -35,7 +35,7 @@ const COURSE_NAMES: Record<string, string> = {
   "TAI CHI": "Tai Chi",
   "GINNASTICA POSTURALE": "Ginnastica Posturale",
   "MENTAL SQUAT": "Mental Squat",
-  YOGA: "Yoga",
+  YOGA: "Yoga 7 Chakra",
 };
 
 const SUB_TYPES: Record<string, SubscriptionType> = {
