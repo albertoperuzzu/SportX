@@ -67,8 +67,13 @@ Il logo "X" è ricreato in SVG in `src/components/Logo.tsx`.
 - [x] Istruttore: calendario, presenze, aggiunta rapida, note/annullamento lezione
 - [x] Dashboard admin
 - [x] Test end-to-end manuale del flusso completo (browser automatizzato), build e lint puliti
-- [ ] **Deploy**: creare il DB su Neon, importare il repo su Vercel, impostare le variabili d'ambiente
-- [ ] Primo admin in produzione (lo crea il seed al primo deploy, usando `ADMIN_EMAIL`)
+- [x] Repo GitHub: https://github.com/albertoperuzzu/SportX (pubblico)
+- [x] DB Neon (progetto `red-bread-27503771`, regione eu-central-1 Francoforte, branch `production`)
+- [x] Progetto Vercel `sport-x` (team `sport-x-gestione`), collegato al repo: ogni push su `main` = deploy in produzione
+- [x] Primo deploy riuscito: migration applicata, admin creato dal seed
+- [x] Funzioni Vercel spostate in regione `fra1` (vicino al DB) con `vercel.json`
+- [ ] Disattivare "Vercel Authentication" (Settings → Deployment Protection) per rendere l'app accessibile a soci e istruttori
+- [ ] Primo accesso admin in produzione e creazione degli istruttori
 
 ## Idee / prossimi passi
 
@@ -94,6 +99,13 @@ Nota PGlite: `prisma migrate dev` non funziona (serve un "shadow database"). Per
 `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script`
 in una nuova cartella `prisma/migrations/<timestamp>_<nome>/migration.sql`, poi `npm run db:migrate`.
 In alternativa usare un branch Neon di sviluppo come `DATABASE_URL`, dove `migrate dev` funziona normalmente.
+
+## Produzione
+
+- URL: https://sport-x-sport-x-gestione.vercel.app
+- Variabili su Vercel (Production + Preview): `DATABASE_URL` (pooled), `DIRECT_URL` (diretta), `SESSION_SECRET`, `ADMIN_EMAIL`
+- Nelle stringhe Neon togliere `channel_binding=require` e aggiungere `connect_timeout=15`
+- CLI: `vercel ls sport-x --scope sport-x-gestione`, `vercel inspect <url> --logs`
 
 ## Deploy (Vercel + Neon)
 
