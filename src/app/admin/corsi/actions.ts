@@ -81,6 +81,14 @@ export async function toggleCourseActive(form: FormData) {
   revalidatePath(`/admin/corsi/${id}`);
 }
 
+/** Elimina il corso con orari, lezioni, presenze, iscrizioni e abbonamenti. I pagamenti restano (senza corso). */
+export async function deleteCourse(form: FormData) {
+  await requireAdmin();
+  await prisma.course.delete({ where: { id: str(form, "id") } });
+  revalidatePath("/admin/corsi");
+  redirect("/admin/corsi");
+}
+
 export async function addSlot(_: ActionState, form: FormData): Promise<ActionState> {
   await requireAdmin();
   const courseId = str(form, "courseId");

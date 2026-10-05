@@ -17,6 +17,7 @@ import {
   enrollMember,
   removeSlot,
   setEnrollmentStatus,
+  deleteCourse,
   toggleCourseActive,
   updateCourse,
 } from "../actions";
@@ -38,7 +39,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   });
   if (!course) notFound();
 
-  const [subStatuses, instructors, members, upcoming, past] = await Promise.all([
+  const [subStatuses, instructors, members, upcoming, past, attendanceCount, paymentCount] = await Promise.all([
     loadSubscriptionStatuses(course.enrollments, today()),
     prisma.user.findMany({ where: { active: true }, orderBy: { lastName: "asc" } }),
     prisma.member.findMany({
@@ -57,7 +58,19 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
       take: 12,
       include: { attendances: { where: { present: true }, select: { id: true } } },
     }),
+    prisma.attendance.count({ where: { lesson: { courseId: id } } }),
+    prisma.payment.count({ where: { courseId: id } }),
   ]);
+  const deleteWarning = [
+    `Eliminare definitivamente il corso "${course.name}"?`,
+    "",
+    "Verranno cancellati anche:",
+    `- ${course.enrollments.length} iscrizioni con i relativi abbonamenti`,
+    `- tutte le lezioni e ${attendanceCount} presenze registrate`,
+    ...(paymentCount ? ["", `I ${paymentCount} pagamenti restano, ma senza corso collegato.`] : []),
+    "",
+    "Se vuoi solo nasconderlo, usa \"Archivia corso\".",
+  ].join("\n");
 
   return (
     <>
@@ -290,6 +303,12 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
           )}
         </section>
       </div>
+      <form action={deleteCourse} className="mt-8 text-right">
+        <input type="hidden" name="id" value={course.id} />
+        <SubmitButton className="btn-danger" confirm={deleteWarning}>
+          Elimina corso
+        </SubmitButton>
+      </form>
     </>
   );
 }
