@@ -43,4 +43,7 @@ next-env.d.ts
 # database locale (PGlite)
 .pglite/
 
+# file da importare (dati personali: mai nel repo pubblico)
+/import/
+
 !.env.example

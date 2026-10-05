@@ -11,6 +11,20 @@ export const PAYMENT_METHODS = { CONTANTI: "Contanti", BONIFICO: "Bonifico", POS
 export const PAYMENT_REASONS = { QUOTA_ASSOCIATIVA: "Quota associativa", CORSO: "Corso", ALTRO: "Altro" } as const;
 export const ENROLLMENT_STATUS = { ATTIVA: "Attiva", SOSPESA: "Sospesa", TERMINATA: "Terminata" } as const;
 export const CERTIFICATE_TYPES = { NON_AGONISTICO: "Non agonistico", AGONISTICO: "Agonistico" } as const;
+export const CONTACT_STATUS = {
+  DA_CONTATTARE: "Da contattare",
+  CONTATTATO: "Contattato",
+  PROVA: "In prova",
+  ISCRITTO: "Iscritto",
+} as const;
+
+export const CONTACT_STATUS_COLORS = {
+  DA_CONTATTARE: "slate",
+  CONTATTATO: "purple",
+  PROVA: "amber",
+  ISCRITTO: "green",
+} as const;
+
 export const ROLES = { ADMIN: "Admin", INSTRUCTOR: "Istruttore" } as const;
 
 export function fullName(p: { firstName: string; lastName: string }) {

@@ -42,6 +42,9 @@ function parseMember(form: FormData) {
       zip: optStr(form, "zip"),
       cardNumber: optStr(form, "cardNumber"),
       notes: optStr(form, "notes"),
+      contactStatus: z.enum(["DA_CONTATTARE", "CONTATTATO", "PROVA", "ISCRITTO"]).catch("ISCRITTO").parse(str(form, "contactStatus")),
+      referent: optStr(form, "referent"),
+      membershipForm: bool(form, "membershipForm"),
     },
   } as const;
 }
@@ -146,6 +149,7 @@ export async function addSubscription(_: ActionState, form: FormData): Promise<A
     },
   });
   if (enrollment.status !== "ATTIVA") await prisma.enrollment.update({ where: { id: enrollmentId }, data: { status: "ATTIVA" } });
+  await prisma.member.update({ where: { id: enrollment.memberId }, data: { contactStatus: "ISCRITTO" } });
   revalidatePath(`/admin/iscritti/${enrollment.memberId}`);
   return { ok: "Abbonamento registrato. Ricordati di registrare il pagamento." };
 }

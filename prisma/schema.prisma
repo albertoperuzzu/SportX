@@ -13,6 +13,14 @@ enum Role {
   INSTRUCTOR
 }
 
+/// Percorso della persona: da contatto a iscritto
+enum ContactStatus {
+  DA_CONTATTARE
+  CONTATTATO
+  PROVA
+  ISCRITTO
+}
+
 enum CertificateType {
   NON_AGONISTICO
   AGONISTICO
@@ -62,24 +70,29 @@ model User {
 }
 
 model Member {
-  id            String    @id @default(cuid())
-  firstName     String
-  lastName      String
-  email         String?
-  phone         String?
-  birthDate     DateTime? @db.Date
-  birthPlace    String?
-  fiscalCode    String?
-  address       String?
-  city          String?
-  zip           String?
-  cardNumber    String?
-  notes         String?
-  incomplete    Boolean   @default(false)
-  createdById   String?
-  createdBy     User?     @relation("MemberCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String        @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  birthDate      DateTime?     @db.Date
+  birthPlace     String?
+  fiscalCode     String?
+  address        String?
+  city           String?
+  zip            String?
+  cardNumber     String?
+  contactStatus  ContactStatus @default(ISCRITTO)
+  /// Socio che segue il contatto (es. NICO, MARI)
+  referent       String?
+  /// Modulo di tesseramento firmato
+  membershipForm Boolean       @default(false)
+  notes          String?
+  incomplete     Boolean       @default(false)
+  createdById    String?
+  createdBy      User?         @relation("MemberCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   certificates MedicalCertificate[]
   enrollments  Enrollment[]
@@ -102,22 +115,22 @@ model MedicalCertificate {
 }
 
 model Course {
-  id           String    @id @default(cuid())
-  name         String
-  description  String?
-  location     String?
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  location       String?
   /// Listino abbonamenti
-  priceMonthly   Decimal?  @db.Decimal(10, 2)
-  priceQuarterly Decimal?  @db.Decimal(10, 2)
-  priceYearly    Decimal?  @db.Decimal(10, 2)
-  priceCarnet    Decimal?  @db.Decimal(10, 2)
-  startDate    DateTime  @db.Date
-  endDate      DateTime  @db.Date
-  active       Boolean   @default(true)
-  instructorId String?
-  instructor   User?     @relation(fields: [instructorId], references: [id], onDelete: SetNull)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  priceMonthly   Decimal? @db.Decimal(10, 2)
+  priceQuarterly Decimal? @db.Decimal(10, 2)
+  priceYearly    Decimal? @db.Decimal(10, 2)
+  priceCarnet    Decimal? @db.Decimal(10, 2)
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+  active         Boolean  @default(true)
+  instructorId   String?
+  instructor     User?    @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   slots       CourseSlot[]
   lessons     Lesson[]

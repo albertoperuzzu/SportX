@@ -21,8 +21,8 @@ Ogni iscrizione a un corso ha uno o più abbonamenti (storico, rinnovi):
 
 | Tipo | Validità | Ingressi |
 |---|---|---|
-| Mensile | 4 settimane dalla data di inizio (inizio + 27 giorni) | illimitati |
-| Trimestrale | 12 settimane (inizio + 83 giorni) | illimitati |
+| Mensile | fino a **fine del mese** di inizio (es. 1/10 → 31/10) | illimitati |
+| Trimestrale | fino a **fine del terzo mese**, mese di inizio compreso (es. 1/10 → 31/12) | illimitati |
 | Annuale | fino al primo **30 giugno** successivo all'inizio | illimitati |
 | Carnet | fino al primo **28 febbraio** successivo all'inizio | **10** |
 
@@ -32,6 +32,15 @@ Ogni iscrizione a un corso ha uno o più abbonamenti (storico, rinnovi):
 - Il carnet consuma un ingresso per ogni presenza nel suo periodo; le presenze già coperte da un abbonamento a tempo non consumano il carnet; più carnet si consumano in ordine di acquisto.
 - Abbonamento scaduto / carnet esaurito / nessun abbonamento: **solo avviso** all'istruttore (la presenza si può segnare comunque) e voce "Abbonamenti da rinnovare" in dashboard admin. "In scadenza" = mancano ≤ 7 giorni o ≤ 1 ingresso.
 - Logica in `src/lib/subscriptions.ts` (pura, condivisa client/server), caricamento stati in `src/lib/subscription-status.ts`.
+
+> Regola cambiata il 2026-10-05: prima erano 4/12 settimane, ma il foglio usato dall'associazione ragiona a mesi di calendario.
+
+### Stato contatto
+
+Ogni persona ha uno stato: **Da contattare → Contattato → In prova → Iscritto**, più il **referente** (socio che la segue, es. NICO, MARI) e il flag "modulo di tesseramento firmato".
+- Chi viene aggiunto al volo dall'istruttore entra come "In prova" (se era già in lista come contatto, viene riconosciuto da email o telefono e promosso a "In prova").
+- Assegnare un abbonamento porta la persona a "Iscritto".
+- La dashboard mostra il conteggio per stato; "Abbonamenti da rinnovare" considera solo gli Iscritti.
 
 ### Accesso
 - Login con **email + password**. Gli account li crea un admin.
@@ -56,7 +65,7 @@ Il logo "X" è ricreato in SVG in `src/components/Logo.tsx`.
 ## Modello dati (`prisma/schema.prisma`)
 
 - `User` — admin e istruttori (email, nome, ruolo, hash password, `mustChangePassword`, `active`)
-- `Member` — iscritto; `incomplete=true` se aggiunto rapidamente da un istruttore
+- `Member` — persona (contatto o iscritto): `contactStatus`, `referent`, `membershipForm`; `incomplete=true` se l'anagrafica è da completare
 - `MedicalCertificate` — tipo, data rilascio, data scadenza
 - `Course` → `CourseSlot` (orari settimanali ricorrenti) → `Lesson` (singole lezioni generate dagli orari + lezioni extra)
 - `Course` ha anche il listino: `priceMonthly`, `priceQuarterly`, `priceYearly`, `priceCarnet`
@@ -94,7 +103,11 @@ Il logo "X" è ricreato in SVG in `src/components/Logo.tsx`.
 - [x] Funzioni Vercel spostate in regione `fra1` (vicino al DB) con `vercel.json`
 - [x] "Vercel Authentication" disattivata: app pubblica su https://sport-x-sport-x-gestione.vercel.app
 - [x] Abbonamenti (mensile, trimestrale, annuale, carnet) con listino per corso, avvisi istruttore, dashboard rinnovi (2026-10-05)
+- [x] Stato contatto + referente + modulo tesseramento (2026-10-05)
+- [x] Script di import del foglio Google "ISCRIZIONE AI CORSI" (`scripts/import-foglio.ts`), provato in locale: 44 righe → 42 persone
+- [ ] **Import in produzione** del foglio (lo lancia Alberto con la stringa Neon, vedi sotto)
 - [ ] Primo accesso admin in produzione e creazione degli istruttori
+- [ ] Dopo l'import: assegnare istruttori e orari ai corsi creati (Tai Chi, Ginnastica Posturale, Mental Squat, Yoga), inserire scadenze certificati
 
 ## Idee / prossimi passi
 
@@ -107,6 +120,27 @@ Il logo "X" è ricreato in SVG in `src/components/Logo.tsx`.
 - Stagione sportiva (es. set–ago) per la quota associativa annuale e indicatore "quota pagata"
 - Stampa modulo di iscrizione / ricevuta pagamento
 - Caricare il logo originale (PDF/PNG) in `public/` al posto dell'SVG ricreato
+
+## Import del foglio Google
+
+Il CSV va in `import/` (cartella **esclusa da git**: contiene dati personali e il repo è pubblico).
+
+```powershell
+cd C:ProgettiSportX
+$env:DATABASE_URL="<stringa Neon>"                               # senza: usa il DB locale di .env
+npm run import:foglio -- importiscrizioni-2026-09-19.csv              # anteprima, non scrive
+npm run import:foglio -- importiscrizioni-2026-09-19.csv --conferma   # importa
+```
+
+Regole dello script:
+- stato: abbonamento → Iscritto; prova gratuita SI → In prova; colonna "Contattati" compilata → Contattato; altrimenti Da contattare
+- stessa persona su più righe (stesso telefono/email/nome) = una sola persona con più corsi
+- iscrizione al corso solo per chi è In prova o Iscritto; per gli altri il corso finisce nelle note ("Interessato/a a")
+- abbonamenti con inizio 1/10/2026 (`--inizio=`), scadenza dal foglio o calcolata
+- colonna INCASSATO → un pagamento (metodo "Altro", data dell'import); quota associativa, certificato, open day, note → nelle note
+- corsi mancanti creati dal 1/9/2026 al 30/6/2027, senza orari né istruttore
+- persone già presenti nel DB vengono saltate (si può rilanciare)
+- nomi e cognomi invertiti nel foglio: elencarli in `import/nomi-invertiti.txt` (uno per riga, come scritti nel foglio)
 
 ## Come si avvia in locale
 

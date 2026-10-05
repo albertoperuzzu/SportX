@@ -53,13 +53,17 @@ export async function quickAddPerson(_: ActionState, form: FormData): Promise<Ac
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const data = parsed.data;
 
-  // Se esiste già una persona con la stessa email la riutilizziamo, per evitare doppioni.
-  const existing = data.email ? await prisma.member.findFirst({ where: { email: data.email } }) : null;
+  // Se esiste già una persona con la stessa email o lo stesso telefono la riutilizziamo, per evitare doppioni.
+  const match = [data.email && { email: data.email }, data.phone && { phone: data.phone }].filter(Boolean) as object[];
+  const existing = match.length ? await prisma.member.findFirst({ where: { OR: match } }) : null;
   const member =
     existing ??
     (await prisma.member.create({
-      data: { ...data, incomplete: true, createdById: user.id },
+      data: { ...data, incomplete: true, contactStatus: "PROVA", createdById: user.id },
     }));
+  if (existing && (existing.contactStatus === "DA_CONTATTARE" || existing.contactStatus === "CONTATTATO")) {
+    await prisma.member.update({ where: { id: existing.id }, data: { contactStatus: "PROVA" } });
+  }
 
   await prisma.$transaction([
     prisma.enrollment.upsert({

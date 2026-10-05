@@ -7,11 +7,12 @@ import { today } from "@/lib/dates";
 import { SubBadge } from "@/components/SubBadge";
 import { loadSubscriptionStatuses } from "@/lib/subscription-status";
 import { needsRenewal } from "@/lib/subscriptions";
+import { CONTACT_STATUS, CONTACT_STATUS_COLORS } from "@/lib/format";
 
-type Search = { q?: string; filtro?: string; corso?: string };
+type Search = { q?: string; filtro?: string; corso?: string; stato?: string };
 
 export default async function MembersPage({ searchParams }: { searchParams: Promise<Search> }) {
-  const { q = "", filtro = "", corso = "" } = await searchParams;
+  const { q = "", filtro = "", corso = "", stato = "" } = await searchParams;
 
   const where: Prisma.MemberWhereInput = {};
   if (q) {
@@ -20,6 +21,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
     }));
   }
   if (filtro === "incompleti") where.incomplete = true;
+  if (stato in CONTACT_STATUS) where.contactStatus = stato as keyof typeof CONTACT_STATUS;
   if (corso) where.enrollments = { some: { courseId: corso, status: "ATTIVA" } };
 
   const [members, courses] = await Promise.all([
@@ -41,7 +43,11 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   const rows = members
     .map((m) => ({ ...m, cert: certificateStatus(m.certificates) }))
     .filter((m) => filtro !== "certificato" || m.cert.status !== "valido")
-    .filter((m) => filtro !== "abbonamento" || m.enrollments.some((e) => needsRenewal(subStatuses.get(e.id)!.kind)));
+    .filter(
+      (m) =>
+        filtro !== "abbonamento" ||
+        (m.contactStatus === "ISCRITTO" && m.enrollments.some((e) => needsRenewal(subStatuses.get(e.id)!.kind))),
+    );
 
   return (
     <>
@@ -62,6 +68,14 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
           {courses.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
+            </option>
+          ))}
+        </select>
+        <select name="stato" defaultValue={stato} className="input max-w-xs">
+          <option value="">Tutti gli stati</option>
+          {Object.entries(CONTACT_STATUS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
             </option>
           ))}
         </select>
@@ -94,6 +108,10 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                     <Link href={`/admin/iscritti/${m.id}`} className="link">
                       {m.lastName} {m.firstName}
                     </Link>
+                    <span className="ml-2">
+                      <Badge color={CONTACT_STATUS_COLORS[m.contactStatus]}>{CONTACT_STATUS[m.contactStatus]}</Badge>
+                    </span>
+                    {m.referent && <span className="ml-1 text-xs text-slate-500">· {m.referent}</span>}
                     {m.incomplete && (
                       <span className="ml-2">
                         <Badge color="amber">Da completare</Badge>

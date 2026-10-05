@@ -1,6 +1,7 @@
 import type { Member } from "@prisma/client";
 import { Field } from "@/components/ui";
 import { toDayString } from "@/lib/dates";
+import { CONTACT_STATUS } from "@/lib/format";
 
 export function MemberFields({ member }: { member?: Member }) {
   return (
@@ -39,8 +40,29 @@ export function MemberFields({ member }: { member?: Member }) {
       <Field label="CAP">
         <input name="zip" defaultValue={member?.zip ?? ""} className="input" />
       </Field>
+      <Field label="Stato">
+        <select name="contactStatus" defaultValue={member?.contactStatus ?? "ISCRITTO"} className="input">
+          {Object.entries(CONTACT_STATUS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Referente">
+        <input name="referent" defaultValue={member?.referent ?? ""} className="input" placeholder="Es. NICO" />
+      </Field>
+      <label className="flex items-center gap-2 self-end pb-2 text-sm">
+        <input type="checkbox" name="membershipForm" defaultChecked={member?.membershipForm} className="h-4 w-4" />
+        Modulo di tesseramento firmato
+      </label>
       <Field label="Note" className="sm:col-span-2 lg:col-span-3">
-        <textarea name="notes" rows={2} defaultValue={member?.notes ?? ""} className="input" />
+        <textarea
+          name="notes"
+          rows={Math.min(8, Math.max(2, (member?.notes ?? "").split("\n").length))}
+          defaultValue={member?.notes ?? ""}
+          className="input"
+        />
       </Field>
     </div>
   );

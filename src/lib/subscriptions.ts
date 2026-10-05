@@ -11,8 +11,8 @@ export const SUBSCRIPTION_TYPES: Record<SubscriptionType, string> = {
 };
 
 export const SUBSCRIPTION_RULES: Record<SubscriptionType, string> = {
-  MENSILE: "4 settimane dalla data di inizio",
-  TRIMESTRALE: "12 settimane dalla data di inizio",
+  MENSILE: "fino alla fine del mese di inizio",
+  TRIMESTRALE: "fino alla fine del terzo mese (mese di inizio compreso)",
   ANNUALE: "fino al 30 giugno",
   CARNET: "10 ingressi, entro il 28 febbraio",
 };
@@ -21,6 +21,11 @@ export const CARNET_ENTRIES = 10;
 
 /** Giorni prima della scadenza in cui un abbonamento a tempo è "in scadenza". */
 export const EXPIRING_SUB_DAYS = 7;
+
+/** Ultimo giorno del mese di `start` spostato di `months` mesi. */
+function endOfMonth(start: Date, months: number): Date {
+  return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + months + 1, 0));
+}
 
 /** Prossima occorrenza (>= start) di un giorno/mese fisso, es. 30 giugno. */
 function nextFixedDate(start: Date, month: number, day: number): Date {
@@ -33,9 +38,9 @@ function nextFixedDate(start: Date, month: number, day: number): Date {
 export function computeEndDate(type: SubscriptionType, start: Date): Date {
   switch (type) {
     case "MENSILE":
-      return addDays(start, 4 * 7 - 1);
+      return endOfMonth(start, 0);
     case "TRIMESTRALE":
-      return addDays(start, 12 * 7 - 1);
+      return endOfMonth(start, 2);
     case "ANNUALE":
       return nextFixedDate(start, 6, 30);
     case "CARNET":

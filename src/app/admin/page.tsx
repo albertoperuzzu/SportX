@@ -3,7 +3,7 @@ import { Badge, CertBadge, EmptyState, PageHeader, StatCard } from "@/components
 import { certificateStatus } from "@/lib/certificates";
 import { prisma } from "@/lib/db";
 import { formatDate, formatLongDate, parseDay, today, todayString } from "@/lib/dates";
-import { formatEuro, PAYMENT_REASONS } from "@/lib/format";
+import { CONTACT_STATUS, formatEuro, PAYMENT_REASONS } from "@/lib/format";
 import { SubBadge } from "@/components/SubBadge";
 import { loadSubscriptionStatuses } from "@/lib/subscription-status";
 import { needsRenewal } from "@/lib/subscriptions";
@@ -11,12 +11,13 @@ import { needsRenewal } from "@/lib/subscriptions";
 export default async function AdminDashboard() {
   const monthStart = parseDay(`${todayString().slice(0, 7)}-01`);
 
-  const [activeEnrollments, activeMembers, activeCourses, incomplete, monthPayments, recentPayments, todayLessons] = await Promise.all([
+  const [activeEnrollments, contactCounts, activeMembers, activeCourses, incomplete, monthPayments, recentPayments, todayLessons] = await Promise.all([
     prisma.enrollment.findMany({
       where: { status: "ATTIVA", course: { active: true } },
       include: { member: true, course: true },
       orderBy: [{ member: { lastName: "asc" } }, { member: { firstName: "asc" } }],
     }),
+    prisma.member.groupBy({ by: ["contactStatus"], _count: true }),
     prisma.member.findMany({
       where: { enrollments: { some: { status: "ATTIVA" } } },
       include: { certificates: { select: { expiryDate: true } } },
@@ -36,7 +37,8 @@ export default async function AdminDashboard() {
   const subStatuses = await loadSubscriptionStatuses(activeEnrollments, today());
   const renewals = activeEnrollments
     .map((e) => ({ ...e, sub: subStatuses.get(e.id)! }))
-    .filter((e) => needsRenewal(e.sub.kind));
+    .filter((e) => e.member.contactStatus === "ISCRITTO" && needsRenewal(e.sub.kind));
+  const countOf = (s: keyof typeof CONTACT_STATUS) => contactCounts.find((c) => c.contactStatus === s)?._count ?? 0;
 
   const certIssues = activeMembers
     .map((m) => ({ ...m, cert: certificateStatus(m.certificates) }))
@@ -64,6 +66,24 @@ export default async function AdminDashboard() {
           tone={certIssues.length ? "red" : "green"}
         />
       </div>
+
+      <section className="card mb-6">
+        <h2 className="mb-3 font-bold">Percorso contatti</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(Object.keys(CONTACT_STATUS) as (keyof typeof CONTACT_STATUS)[]).map((s, i) => (
+            <Link
+              key={s}
+              href={`/admin/iscritti?stato=${s}`}
+              className="rounded-lg border border-slate-200 p-3 text-center transition hover:border-brand-purple hover:shadow-sm"
+            >
+              <div className="text-xs font-semibold text-slate-500 uppercase">
+                {i + 1}. {CONTACT_STATUS[s]}
+              </div>
+              <div className="font-display text-2xl text-brand-green">{countOf(s)}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card lg:col-span-2">

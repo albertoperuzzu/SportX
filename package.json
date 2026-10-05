@@ -11,7 +11,8 @@
     "postinstall": "prisma generate",
     "db:local": "node node_modules/@electric-sql/pglite-socket/dist/scripts/server.js --db=./.pglite --port=5433 --max-connections=10",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "import:foglio": "tsx scripts/import-foglio.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
