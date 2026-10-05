@@ -24,7 +24,7 @@ export function AppShell({ user, impersonator, children }: { user: User; imperso
         <div className="sticky top-0 z-50 bg-amber-400 text-amber-950 shadow">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
             <span>
-              👁 Stai vedendo l'app come <strong>{user.firstName} {user.lastName}</strong> ({ROLES[user.role]}). Le modifiche che
+              👁 Stai vedendo l&apos;app come <strong>{user.firstName} {user.lastName}</strong> ({ROLES[user.role]}). Le modifiche che
               fai vengono registrate come sue.
             </span>
             <form action={stopImpersonating}>
