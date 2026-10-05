@@ -5,10 +5,24 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { Badge, CertBadge, Field, PageHeader } from "@/components/ui";
 import { certificateStatus } from "@/lib/certificates";
 import { prisma } from "@/lib/db";
-import { formatDate, todayString } from "@/lib/dates";
+import { formatDate, today, todayString } from "@/lib/dates";
 import { CERTIFICATE_TYPES, ENROLLMENT_STATUS, formatEuro, PAYMENT_METHODS, PAYMENT_REASONS } from "@/lib/format";
 import { enrollMember, setEnrollmentStatus } from "../../corsi/actions";
-import { addCertificate, addPayment, deleteCertificate, deleteMember, deletePayment, updateMember } from "../actions";
+import {
+  addCertificate,
+  addPayment,
+  addSubscription,
+  deleteCertificate,
+  deleteMember,
+  deletePayment,
+  deleteSubscription,
+  updateMember,
+} from "../actions";
+import { SubBadge } from "@/components/SubBadge";
+import { loadSubscriptionStatuses } from "@/lib/subscription-status";
+import { CARNET_ENTRIES, SUBSCRIPTION_TYPES } from "@/lib/subscriptions";
+import { PRICE_FIELDS } from "../../corsi/CourseFields";
+import { SubscriptionForm } from "../SubscriptionForm";
 import { MemberFields } from "../MemberFields";
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +32,10 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
     include: {
       createdBy: true,
       certificates: { orderBy: { expiryDate: "desc" } },
-      enrollments: { include: { course: true }, orderBy: { enrolledAt: "desc" } },
+      enrollments: {
+        include: { course: true, subscriptions: { orderBy: { startDate: "desc" } } },
+        orderBy: { enrolledAt: "desc" },
+      },
       payments: { include: { course: true }, orderBy: { date: "desc" } },
       attendances: {
         include: { lesson: { include: { course: true } } },
@@ -29,7 +46,15 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
   });
   if (!member) notFound();
 
-  const courses = await prisma.course.findMany({ where: { active: true }, orderBy: { name: "asc" } });
+  const [courses, subStatuses] = await Promise.all([
+    prisma.course.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    loadSubscriptionStatuses(member.enrollments, today()),
+  ]);
+  const enrollmentOptions = member.enrollments.map((e) => ({
+    id: e.id,
+    courseName: e.course.name,
+    prices: Object.fromEntries(PRICE_FIELDS.map(([name, type]) => [type, e.course[name]?.toString() ?? ""])),
+  }));
   const notEnrolled = courses.filter((c) => !member.enrollments.some((e) => e.courseId === c.id));
   const cert = certificateStatus(member.certificates);
   const presentCount = member.attendances.filter((a) => a.present).length;
@@ -153,6 +178,58 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
               </Field>
               <SubmitButton className="btn-secondary">Iscrivi</SubmitButton>
             </ActionForm>
+          )}
+        </section>
+
+        <section className="card lg:col-span-2">
+          <h2 className="mb-3 font-bold">Abbonamenti</h2>
+          {member.enrollments.length === 0 ? (
+            <p className="text-sm text-slate-500">Iscrivi prima la persona a un corso.</p>
+          ) : (
+            <>
+              <div className="mb-4 space-y-4">
+                {member.enrollments.map((e) => {
+                  const status = subStatuses.get(e.id)!;
+                  return (
+                    <div key={e.id}>
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <strong className="text-sm">{e.course.name}</strong>
+                        <SubBadge status={status} />
+                        {status.uncovered > 0 && (
+                          <span className="text-xs text-red-600">{status.uncovered} presenze non coperte da abbonamento</span>
+                        )}
+                      </div>
+                      {e.subscriptions.length > 0 && (
+                        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
+                          {e.subscriptions.map((sub) => (
+                            <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                              <span>
+                                <strong>{SUBSCRIPTION_TYPES[sub.type]}</strong> {formatDate(sub.startDate)} → {formatDate(sub.endDate)}
+                                {sub.type === "CARNET" && (
+                                  <span className="text-slate-600">
+                                    {" "}
+                                    · {status.carnetUsage.get(sub.id) ?? 0}/{sub.entries ?? CARNET_ENTRIES} ingressi usati
+                                  </span>
+                                )}
+                                {sub.price && <span className="text-slate-600"> · {formatEuro(sub.price)}</span>}
+                                {sub.notes && <span className="block text-xs text-slate-500">{sub.notes}</span>}
+                              </span>
+                              <form action={deleteSubscription}>
+                                <input type="hidden" name="id" value={sub.id} />
+                                <SubmitButton className="btn-danger btn-sm" confirm="Eliminare questo abbonamento?">
+                                  ✕
+                                </SubmitButton>
+                              </form>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <SubscriptionForm enrollments={enrollmentOptions} action={addSubscription} />
+            </>
           )}
         </section>
 

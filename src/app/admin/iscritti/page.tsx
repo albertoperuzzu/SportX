@@ -3,6 +3,10 @@ import type { Prisma } from "@prisma/client";
 import { Badge, CertBadge, EmptyState, PageHeader } from "@/components/ui";
 import { certificateStatus } from "@/lib/certificates";
 import { prisma } from "@/lib/db";
+import { today } from "@/lib/dates";
+import { SubBadge } from "@/components/SubBadge";
+import { loadSubscriptionStatuses } from "@/lib/subscription-status";
+import { needsRenewal } from "@/lib/subscriptions";
 
 type Search = { q?: string; filtro?: string; corso?: string };
 
@@ -30,9 +34,14 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
     prisma.course.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
+  const subStatuses = await loadSubscriptionStatuses(
+    members.flatMap((m) => m.enrollments),
+    today(),
+  );
   const rows = members
     .map((m) => ({ ...m, cert: certificateStatus(m.certificates) }))
-    .filter((m) => filtro !== "certificato" || m.cert.status !== "valido");
+    .filter((m) => filtro !== "certificato" || m.cert.status !== "valido")
+    .filter((m) => filtro !== "abbonamento" || m.enrollments.some((e) => needsRenewal(subStatuses.get(e.id)!.kind)));
 
   return (
     <>
@@ -60,6 +69,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
           <option value="">Tutti</option>
           <option value="incompleti">Anagrafica da completare</option>
           <option value="certificato">Certificato scaduto/mancante/in scadenza</option>
+          <option value="abbonamento">Abbonamento da rinnovare</option>
         </select>
         <button className="btn-primary">Filtra</button>
       </form>
@@ -73,7 +83,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
               <tr>
                 <th>Nome</th>
                 <th>Contatti</th>
-                <th>Corsi</th>
+                <th>Corsi e abbonamenti</th>
                 <th>Certificato</th>
               </tr>
             </thead>
@@ -94,7 +104,16 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                     <div>{m.phone}</div>
                     <div className="text-xs">{m.email}</div>
                   </td>
-                  <td className="text-slate-600">{m.enrollments.map((e) => e.course.name).join(", ") || "—"}</td>
+                  <td className="text-slate-600">
+                    {m.enrollments.length === 0
+                      ? "—"
+                      : m.enrollments.map((e) => (
+                          <div key={e.id} className="flex flex-wrap items-center gap-1 py-0.5">
+                            <span>{e.course.name}</span>
+                            <SubBadge status={subStatuses.get(e.id)!} />
+                          </div>
+                        ))}
+                  </td>
                   <td>
                     <CertBadge {...m.cert} />
                   </td>

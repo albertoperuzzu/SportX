@@ -6,7 +6,8 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { parseDay } from "@/lib/dates";
-import { bool, optStr, str, type ActionState } from "@/lib/forms";
+import { bool, optStr, parsePrice, str, type ActionState } from "@/lib/forms";
+import { CARNET_ENTRIES, computeEndDate } from "@/lib/subscriptions";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data non valida.");
 
@@ -99,6 +100,60 @@ export async function deleteCertificate(form: FormData) {
   await requireAdmin();
   const c = await prisma.medicalCertificate.delete({ where: { id: str(form, "id") } });
   revalidatePath(`/admin/iscritti/${c.memberId}`);
+}
+
+const PRICE_BY_TYPE = {
+  MENSILE: "priceMonthly",
+  TRIMESTRALE: "priceQuarterly",
+  ANNUALE: "priceYearly",
+  CARNET: "priceCarnet",
+} as const;
+
+export async function addSubscription(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = z
+    .object({
+      enrollmentId: z.string().min(1, "Seleziona il corso."),
+      type: z.enum(["MENSILE", "TRIMESTRALE", "ANNUALE", "CARNET"]),
+      startDate: day,
+      endDate: day.nullable(),
+    })
+    .safeParse({
+      enrollmentId: str(form, "enrollmentId"),
+      type: str(form, "type"),
+      startDate: str(form, "startDate"),
+      endDate: optStr(form, "endDate"),
+    });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { enrollmentId, type } = parsed.data;
+  const startDate = parseDay(parsed.data.startDate);
+  const endDate = parsed.data.endDate ? parseDay(parsed.data.endDate) : computeEndDate(type, startDate);
+  if (endDate < startDate) return { error: "La data di fine è precedente all'inizio." };
+
+  const price = parsePrice(form, "price");
+  if (Number.isNaN(price)) return { error: "Prezzo non valido." };
+
+  const enrollment = await prisma.enrollment.findUniqueOrThrow({ where: { id: enrollmentId }, include: { course: true } });
+  await prisma.subscription.create({
+    data: {
+      enrollmentId,
+      type,
+      startDate,
+      endDate,
+      entries: type === "CARNET" ? CARNET_ENTRIES : null,
+      price: price ?? enrollment.course[PRICE_BY_TYPE[type]],
+      notes: optStr(form, "notes"),
+    },
+  });
+  if (enrollment.status !== "ATTIVA") await prisma.enrollment.update({ where: { id: enrollmentId }, data: { status: "ATTIVA" } });
+  revalidatePath(`/admin/iscritti/${enrollment.memberId}`);
+  return { ok: "Abbonamento registrato. Ricordati di registrare il pagamento." };
+}
+
+export async function deleteSubscription(form: FormData) {
+  await requireAdmin();
+  const s = await prisma.subscription.delete({ where: { id: str(form, "id") }, include: { enrollment: true } });
+  revalidatePath(`/admin/iscritti/${s.enrollment.memberId}`);
 }
 
 export async function addPayment(_: ActionState, form: FormData): Promise<ActionState> {

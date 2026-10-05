@@ -15,6 +15,24 @@ certificati medici e presenze. Deve essere usato online da soci (admin) e istrut
 | **Admin** | Tutto: iscritti (anagrafica completa), certificati, pagamenti, corsi, orari, lezioni, utenti/istruttori, calendario di tutti i corsi |
 | **Istruttore** | Calendario delle lezioni **dei propri corsi**, registrazione presenze, aggiunta rapida di una persona (nome, cognome, email, telefono), note/annullamento lezione |
 
+### Abbonamenti
+
+Ogni iscrizione a un corso ha uno o più abbonamenti (storico, rinnovi):
+
+| Tipo | Validità | Ingressi |
+|---|---|---|
+| Mensile | 4 settimane dalla data di inizio (inizio + 27 giorni) | illimitati |
+| Trimestrale | 12 settimane (inizio + 83 giorni) | illimitati |
+| Annuale | fino al primo **30 giugno** successivo all'inizio | illimitati |
+| Carnet | fino al primo **28 febbraio** successivo all'inizio | **10** |
+
+- Data di fine e prezzo vengono proposti automaticamente (listino del corso), ma sono modificabili.
+- Ogni corso ha un listino con 4 prezzi (mensile, trimestrale, annuale, carnet).
+- I **pagamenti sono separati**: registrare l'abbonamento non registra il pagamento.
+- Il carnet consuma un ingresso per ogni presenza nel suo periodo; le presenze già coperte da un abbonamento a tempo non consumano il carnet; più carnet si consumano in ordine di acquisto.
+- Abbonamento scaduto / carnet esaurito / nessun abbonamento: **solo avviso** all'istruttore (la presenza si può segnare comunque) e voce "Abbonamenti da rinnovare" in dashboard admin. "In scadenza" = mancano ≤ 7 giorni o ≤ 1 ingresso.
+- Logica in `src/lib/subscriptions.ts` (pura, condivisa client/server), caricamento stati in `src/lib/subscription-status.ts`.
+
 ### Accesso
 - Login con **email + password**. Gli account li crea un admin.
 - Primo accesso con password **`SportX2026!`**: il cambio password è obbligatorio (min. 8 caratteri, diversa da quella iniziale).
@@ -41,7 +59,9 @@ Il logo "X" è ricreato in SVG in `src/components/Logo.tsx`.
 - `Member` — iscritto; `incomplete=true` se aggiunto rapidamente da un istruttore
 - `MedicalCertificate` — tipo, data rilascio, data scadenza
 - `Course` → `CourseSlot` (orari settimanali ricorrenti) → `Lesson` (singole lezioni generate dagli orari + lezioni extra)
+- `Course` ha anche il listino: `priceMonthly`, `priceQuarterly`, `priceYearly`, `priceCarnet`
 - `Enrollment` — iscritto ↔ corso, stato ATTIVA/SOSPESA/TERMINATA
+- `Subscription` — abbonamento di un'iscrizione: tipo, inizio, fine, ingressi (carnet), prezzo, note
 - `Payment` — importo, data, metodo, causale (quota associativa / corso / altro), corso, periodo
 - `Attendance` — presenza/assenza per lezione e iscritto
 
@@ -50,8 +70,8 @@ Il logo "X" è ricreato in SVG in `src/components/Logo.tsx`.
 | Percorso | Contenuto |
 |---|---|
 | `/login`, `/cambia-password` | Accesso e cambio password |
-| `/admin` | Dashboard: KPI, certificati da sistemare, anagrafiche da completare, lezioni di oggi, ultimi pagamenti |
-| `/admin/iscritti` (+ `/nuovo`, `/[id]`) | Lista con ricerca/filtri; scheda con anagrafica, certificati, corsi, pagamenti, presenze |
+| `/admin` | Dashboard: KPI, abbonamenti da rinnovare, certificati da sistemare, anagrafiche da completare, lezioni di oggi, ultimi pagamenti |
+| `/admin/iscritti` (+ `/nuovo`, `/[id]`) | Lista con ricerca/filtri; scheda con anagrafica, certificati, corsi, abbonamenti, pagamenti, presenze |
 | `/admin/corsi` (+ `/nuovo`, `/[id]`) | Corsi, orari settimanali, lezioni, iscritti al corso |
 | `/admin/pagamenti` | Registro con filtri e totale |
 | `/admin/utenti` | Utenti/istruttori: crea, modifica, reset password, disattiva |
@@ -72,10 +92,14 @@ Il logo "X" è ricreato in SVG in `src/components/Logo.tsx`.
 - [x] Progetto Vercel `sport-x` (team `sport-x-gestione`), collegato al repo: ogni push su `main` = deploy in produzione
 - [x] Primo deploy riuscito: migration applicata, admin creato dal seed
 - [x] Funzioni Vercel spostate in regione `fra1` (vicino al DB) con `vercel.json`
-- [ ] Disattivare "Vercel Authentication" (Settings → Deployment Protection) per rendere l'app accessibile a soci e istruttori
+- [x] "Vercel Authentication" disattivata: app pubblica su https://sport-x-sport-x-gestione.vercel.app
+- [x] Abbonamenti (mensile, trimestrale, annuale, carnet) con listino per corso, avvisi istruttore, dashboard rinnovi (2026-10-05)
 - [ ] Primo accesso admin in produzione e creazione degli istruttori
 
 ## Idee / prossimi passi
+
+- Collegare un pagamento a un abbonamento (oggi sono separati per scelta) e mostrare "abbonamento non pagato"
+- Sospensione abbonamento (es. infortunio) che sposta la scadenza
 
 - Esportazione CSV (iscritti, pagamenti, presenze) per la contabilità
 - Promemoria scadenza certificati via email

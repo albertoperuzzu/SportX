@@ -1,6 +1,14 @@
 import type { Course, User } from "@prisma/client";
 import { Field } from "@/components/ui";
 import { toDayString } from "@/lib/dates";
+import { SUBSCRIPTION_TYPES, type SubscriptionType } from "@/lib/subscriptions";
+
+export const PRICE_FIELDS = [
+  ["priceMonthly", "MENSILE"],
+  ["priceQuarterly", "TRIMESTRALE"],
+  ["priceYearly", "ANNUALE"],
+  ["priceCarnet", "CARNET"],
+] as const satisfies readonly (readonly [keyof Course, SubscriptionType])[];
 
 export function CourseFields({ course, instructors }: { course?: Course; instructors: User[] }) {
   return (
@@ -27,9 +35,16 @@ export function CourseFields({ course, instructors }: { course?: Course; instruc
       <Field label="Data fine">
         <input name="endDate" type="date" required defaultValue={course ? toDayString(course.endDate) : ""} className="input" />
       </Field>
-      <Field label="Prezzo (€)">
-        <input name="price" inputMode="decimal" defaultValue={course?.price?.toString() ?? ""} className="input" placeholder="Es. 40 al mese" />
-      </Field>
+      <fieldset className="sm:col-span-2">
+        <legend className="label">Listino abbonamenti (€)</legend>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {PRICE_FIELDS.map(([name, type]) => (
+            <Field key={name} label={SUBSCRIPTION_TYPES[type]}>
+              <input name={name} inputMode="decimal" defaultValue={course?.[name]?.toString() ?? ""} className="input" />
+            </Field>
+          ))}
+        </div>
+      </fieldset>
       <Field label="Descrizione" className="sm:col-span-2">
         <textarea name="description" rows={2} defaultValue={course?.description ?? ""} className="input" />
       </Field>

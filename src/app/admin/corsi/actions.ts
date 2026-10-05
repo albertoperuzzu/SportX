@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { parseDay } from "@/lib/dates";
-import { optStr, str, type ActionState } from "@/lib/forms";
+import { optStr, parsePrice, str, type ActionState } from "@/lib/forms";
 import { generateLessons, removeOrphanLessons } from "@/lib/lessons";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data non valida.");
@@ -17,7 +17,6 @@ const courseSchema = z
     name: z.string().min(1, "Il nome è obbligatorio."),
     description: z.string().nullable(),
     location: z.string().nullable(),
-    price: z.string().nullable(),
     startDate: day,
     endDate: day,
     instructorId: z.string().nullable(),
@@ -29,21 +28,25 @@ function parseCourse(form: FormData) {
     name: str(form, "name"),
     description: optStr(form, "description"),
     location: optStr(form, "location"),
-    price: optStr(form, "price"),
     startDate: str(form, "startDate"),
     endDate: str(form, "endDate"),
     instructorId: optStr(form, "instructorId"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message } as const;
   const c = parsed.data;
-  const price = c.price ? Number(c.price.replace(",", ".")) : null;
-  if (price !== null && Number.isNaN(price)) return { error: "Prezzo non valido." } as const;
+  const prices = {
+    priceMonthly: parsePrice(form, "priceMonthly"),
+    priceQuarterly: parsePrice(form, "priceQuarterly"),
+    priceYearly: parsePrice(form, "priceYearly"),
+    priceCarnet: parsePrice(form, "priceCarnet"),
+  };
+  if (Object.values(prices).some((p) => Number.isNaN(p))) return { error: "Controlla i prezzi del listino." } as const;
   return {
     data: {
       name: c.name,
       description: c.description,
       location: c.location,
-      price,
+      ...prices,
       startDate: parseDay(c.startDate),
       endDate: parseDay(c.endDate),
       instructorId: c.instructorId,

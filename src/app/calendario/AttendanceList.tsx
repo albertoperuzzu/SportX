@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Person = { id: string; name: string; present: boolean; warning?: string; incomplete?: boolean };
+type Person = { id: string; name: string; present: boolean; warnings: string[]; info?: string; incomplete?: boolean };
 
 /** Elenco presenti/assenti con toggle grandi, pensato per l'uso da telefono. */
 export function AttendanceList({ people }: { people: Person[] }) {
@@ -49,7 +49,12 @@ export function AttendanceList({ people }: { people: Person[] }) {
                 <span>
                   <span className="font-semibold">{p.name}</span>
                   {p.incomplete && <span className="ml-2 text-xs text-amber-700">(nuovo)</span>}
-                  {p.warning && <span className="block text-xs text-red-600">⚠ {p.warning}</span>}
+                  {p.warnings.map((w) => (
+                    <span key={w} className="block text-xs text-red-600">
+                      ⚠ {w}
+                    </span>
+                  ))}
+                  {p.info && <span className="block text-xs text-slate-500">{p.info}</span>}
                 </span>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-bold ${on ? "bg-brand-green text-white" : "bg-slate-100 text-slate-500"}`}

@@ -7,6 +7,8 @@ import { certificateStatus } from "@/lib/certificates";
 import { prisma } from "@/lib/db";
 import { formatDate, formatLongDate, today, WEEKDAYS } from "@/lib/dates";
 import { ENROLLMENT_STATUS, formatEuro } from "@/lib/format";
+import { loadSubscriptionStatuses } from "@/lib/subscription-status";
+import { SUBSCRIPTION_TYPES } from "@/lib/subscriptions";
 import {
   addExtraLesson,
   addSlot,
@@ -18,7 +20,8 @@ import {
   toggleCourseActive,
   updateCourse,
 } from "../actions";
-import { CourseFields } from "../CourseFields";
+import { CourseFields, PRICE_FIELDS } from "../CourseFields";
+import { SubBadge } from "@/components/SubBadge";
 
 export default async function CourseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,7 +38,8 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   });
   if (!course) notFound();
 
-  const [instructors, members, upcoming, past] = await Promise.all([
+  const [subStatuses, instructors, members, upcoming, past] = await Promise.all([
+    loadSubscriptionStatuses(course.enrollments, today()),
     prisma.user.findMany({ where: { active: true }, orderBy: { lastName: "asc" } }),
     prisma.member.findMany({
       where: { enrollments: { none: { courseId: id } } },
@@ -64,7 +68,6 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
             {course.instructor ? `Istruttore: ${course.instructor.firstName} ${course.instructor.lastName}` : "Nessun istruttore"}
             {" · "}
             {formatDate(course.startDate)} → {formatDate(course.endDate)}
-            {course.price && ` · ${formatEuro(course.price)}`}
             {!course.active && " · ARCHIVIATO"}
           </>
         }
@@ -130,6 +133,14 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
           </details>
           {course.description && <p className="mt-3 text-sm text-slate-600">{course.description}</p>}
           {course.location && <p className="mt-1 text-sm text-slate-500">📍 {course.location}</p>}
+          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {PRICE_FIELDS.map(([name, type]) => (
+              <div key={name} className="rounded-lg bg-slate-50 p-2 text-center">
+                <dt className="text-xs text-slate-500">{SUBSCRIPTION_TYPES[type]}</dt>
+                <dd className="font-semibold">{formatEuro(course[name])}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <section className="card lg:col-span-2">
@@ -143,6 +154,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
                   <tr>
                     <th>Nome</th>
                     <th>Certificato</th>
+                    <th>Abbonamento</th>
                     <th>Iscritto dal</th>
                     <th>Stato</th>
                     <th></th>
@@ -165,6 +177,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
                         </td>
                         <td>
                           <CertBadge {...cert} />
+                        </td>
+                        <td>
+                          <SubBadge status={subStatuses.get(e.id)!} />
                         </td>
                         <td>{formatDate(e.enrolledAt)}</td>
                         <td>

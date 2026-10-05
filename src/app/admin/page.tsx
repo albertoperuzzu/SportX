@@ -4,11 +4,19 @@ import { certificateStatus } from "@/lib/certificates";
 import { prisma } from "@/lib/db";
 import { formatDate, formatLongDate, parseDay, today, todayString } from "@/lib/dates";
 import { formatEuro, PAYMENT_REASONS } from "@/lib/format";
+import { SubBadge } from "@/components/SubBadge";
+import { loadSubscriptionStatuses } from "@/lib/subscription-status";
+import { needsRenewal } from "@/lib/subscriptions";
 
 export default async function AdminDashboard() {
   const monthStart = parseDay(`${todayString().slice(0, 7)}-01`);
 
-  const [activeMembers, activeCourses, incomplete, monthPayments, recentPayments, todayLessons] = await Promise.all([
+  const [activeEnrollments, activeMembers, activeCourses, incomplete, monthPayments, recentPayments, todayLessons] = await Promise.all([
+    prisma.enrollment.findMany({
+      where: { status: "ATTIVA", course: { active: true } },
+      include: { member: true, course: true },
+      orderBy: [{ member: { lastName: "asc" } }, { member: { firstName: "asc" } }],
+    }),
     prisma.member.findMany({
       where: { enrollments: { some: { status: "ATTIVA" } } },
       include: { certificates: { select: { expiryDate: true } } },
@@ -25,6 +33,11 @@ export default async function AdminDashboard() {
     }),
   ]);
 
+  const subStatuses = await loadSubscriptionStatuses(activeEnrollments, today());
+  const renewals = activeEnrollments
+    .map((e) => ({ ...e, sub: subStatuses.get(e.id)! }))
+    .filter((e) => needsRenewal(e.sub.kind));
+
   const certIssues = activeMembers
     .map((m) => ({ ...m, cert: certificateStatus(m.certificates) }))
     .filter((m) => m.cert.status !== "valido")
@@ -34,10 +47,16 @@ export default async function AdminDashboard() {
     <>
       <PageHeader title="Dashboard" subtitle={<span className="capitalize">{formatLongDate(today())}</span>} />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard label="Iscritti attivi" value={activeMembers.length} href="/admin/iscritti" />
         <StatCard label="Corsi attivi" value={activeCourses} href="/admin/corsi" tone="purple" />
         <StatCard label="Incassi del mese" value={formatEuro(monthPayments._sum.amount ?? 0)} href="/admin/pagamenti" tone="orange" />
+        <StatCard
+          label="Abbonamenti da rinnovare"
+          value={renewals.length}
+          href="/admin/iscritti?filtro=abbonamento"
+          tone={renewals.length ? "red" : "green"}
+        />
         <StatCard
           label="Certificati da sistemare"
           value={certIssues.length}
@@ -47,6 +66,27 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <section className="card lg:col-span-2">
+          <h2 className="mb-3 font-bold">Abbonamenti da rinnovare</h2>
+          {renewals.length === 0 ? (
+            <EmptyState>Tutti gli iscritti attivi hanno un abbonamento valido 🎉</EmptyState>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {renewals.map((e) => (
+                <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span>
+                    <Link href={`/admin/iscritti/${e.memberId}`} className="link">
+                      {e.member.lastName} {e.member.firstName}
+                    </Link>{" "}
+                    <span className="text-xs text-slate-500">· {e.course.name}</span>
+                  </span>
+                  <SubBadge status={e.sub} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section className="card">
           <h2 className="mb-3 font-bold">Certificati scaduti, mancanti o in scadenza</h2>
           {certIssues.length === 0 ? (

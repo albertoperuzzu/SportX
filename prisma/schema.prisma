@@ -24,6 +24,13 @@ enum EnrollmentStatus {
   TERMINATA
 }
 
+enum SubscriptionType {
+  MENSILE
+  TRIMESTRALE
+  ANNUALE
+  CARNET
+}
+
 enum PaymentMethod {
   CONTANTI
   BONIFICO
@@ -99,7 +106,11 @@ model Course {
   name         String
   description  String?
   location     String?
-  price        Decimal?  @db.Decimal(10, 2)
+  /// Listino abbonamenti
+  priceMonthly   Decimal?  @db.Decimal(10, 2)
+  priceQuarterly Decimal?  @db.Decimal(10, 2)
+  priceYearly    Decimal?  @db.Decimal(10, 2)
+  priceCarnet    Decimal?  @db.Decimal(10, 2)
   startDate    DateTime  @db.Date
   endDate      DateTime  @db.Date
   active       Boolean   @default(true)
@@ -150,7 +161,25 @@ model Enrollment {
   enrolledAt DateTime         @default(now()) @db.Date
   status     EnrollmentStatus @default(ATTIVA)
 
+  subscriptions Subscription[]
+
   @@unique([memberId, courseId])
+}
+
+model Subscription {
+  id           String           @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment       @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  type         SubscriptionType
+  startDate    DateTime         @db.Date
+  endDate      DateTime         @db.Date
+  /// Numero di ingressi (solo carnet)
+  entries      Int?
+  price        Decimal?         @db.Decimal(10, 2)
+  notes        String?
+  createdAt    DateTime         @default(now())
+
+  @@index([enrollmentId, startDate])
 }
 
 model Payment {

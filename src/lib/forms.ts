@@ -11,6 +11,14 @@ export function optStr(form: FormData, key: string): string | null {
   return v === "" ? null : v;
 }
 
+/** Importo in euro ("40" o "40,50"); null se vuoto, NaN se non valido. */
+export function parsePrice(form: FormData, key: string): number | null {
+  const v = str(form, key).replace(",", ".");
+  if (v === "") return null;
+  const n = Number(v);
+  return n >= 0 ? n : NaN;
+}
+
 export function bool(form: FormData, key: string): boolean {
   return form.get(key) === "on" || form.get(key) === "true";
 }

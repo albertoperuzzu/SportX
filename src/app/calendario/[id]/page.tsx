@@ -8,6 +8,8 @@ import { certificateStatus } from "@/lib/certificates";
 import { prisma } from "@/lib/db";
 import { formatLongDate, toDayString } from "@/lib/dates";
 import { quickAddPerson, saveAttendance, updateLessonInfo } from "../actions";
+import { loadSubscriptionStatuses } from "@/lib/subscription-status";
+import { needsRenewal } from "@/lib/subscriptions";
 import { AttendanceList } from "../AttendanceList";
 
 const CERT_WARNINGS = { scaduto: "certificato scaduto", mancante: "certificato mancante" } as const;
@@ -21,7 +23,7 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
       course: {
         include: {
           instructor: true,
-          enrollments: { where: { status: "ATTIVA" }, include: { member: { include: { certificates: true } } } },
+          enrollments: { include: { member: { include: { certificates: true } } } },
         },
       },
       attendances: { include: { member: { include: { certificates: true } } } },
@@ -30,20 +32,29 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
   if (!lesson) notFound();
   if (user.role !== "ADMIN" && lesson.course.instructorId !== user.id) redirect("/calendario");
 
+  const subStatuses = await loadSubscriptionStatuses(lesson.course.enrollments, lesson.date, lesson.id);
+  const enrollmentByMember = new Map(lesson.course.enrollments.map((e) => [e.memberId, e]));
+
   // Iscritti attivi + chiunque abbia già una presenza registrata per questa lezione
-  const byId = new Map(lesson.course.enrollments.map((e) => [e.member.id, e.member]));
+  const byId = new Map(lesson.course.enrollments.filter((e) => e.status === "ATTIVA").map((e) => [e.member.id, e.member]));
   for (const a of lesson.attendances) byId.set(a.member.id, a.member);
   const attendance = new Map(lesson.attendances.map((a) => [a.memberId, a.present]));
   const people = [...byId.values()]
     .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
     .map((m) => {
-      const status = certificateStatus(m.certificates).status;
+      const cert = certificateStatus(m.certificates).status;
+      const enrollment = enrollmentByMember.get(m.id);
+      const sub = enrollment ? subStatuses.get(enrollment.id) : undefined;
+      const warnings: string[] = [];
+      if (cert === "scaduto" || cert === "mancante") warnings.push(CERT_WARNINGS[cert]);
+      if (sub && sub.kind !== "attivo" && sub.kind !== "in_scadenza") warnings.push(sub.label.toLowerCase());
       return {
         id: m.id,
         name: `${m.lastName} ${m.firstName}`,
         present: attendance.get(m.id) ?? false,
         incomplete: m.incomplete,
-        warning: status === "scaduto" || status === "mancante" ? CERT_WARNINGS[status] : undefined,
+        warnings,
+        info: sub && !needsRenewal(sub.kind) ? sub.label : sub?.kind === "in_scadenza" ? `${sub.label} — da rinnovare` : undefined,
       };
     });
 
