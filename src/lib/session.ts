@@ -11,6 +11,8 @@ export type SessionPayload = {
   role: Role;
   /** true finché l'utente non ha scelto una password personale */
   mcp: boolean;
+  /** Se presente: id dell'admin che sta visualizzando l'app come questo utente ("vedi come") */
+  imp?: string;
 };
 
 function secretKey() {

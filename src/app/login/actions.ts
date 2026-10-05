@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { checkPassword, endSession, getCurrentUser, hashPassword, startSession } from "@/lib/auth";
+import { checkPassword, endSession, getCurrentUser, getImpersonator, hashPassword, startSession } from "@/lib/auth";
 import { INITIAL_PASSWORD } from "@/lib/auth";
 import { str, type ActionState } from "@/lib/forms";
 
@@ -16,6 +16,17 @@ export async function login(_: ActionState, form: FormData): Promise<ActionState
   }
   await startSession(user);
   redirect(user.mustChangePassword ? "/cambia-password" : "/");
+}
+
+/** Chiude il "vedi come" e torna all'account dell'admin. */
+export async function stopImpersonating() {
+  const admin = await getImpersonator();
+  if (!admin) {
+    await endSession();
+    redirect("/login");
+  }
+  await startSession(admin);
+  redirect("/admin/utenti");
 }
 
 export async function logout() {
@@ -31,6 +42,7 @@ const passwordSchema = z
 export async function changePassword(_: ActionState, form: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (await getImpersonator()) return { error: "Non puoi cambiare la password mentre vedi l'app come un altro utente." };
 
   const current = String(form.get("current") ?? "");
   const next = String(form.get("password") ?? "");

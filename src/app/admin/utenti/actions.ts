@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { hashPassword, INITIAL_PASSWORD, requireAdmin } from "@/lib/auth";
+import { hashPassword, INITIAL_PASSWORD, requireAdmin, startSession } from "@/lib/auth";
 import { optStr, str, type ActionState } from "@/lib/forms";
 
 const userSchema = z.object({
@@ -67,4 +68,13 @@ export async function toggleActive(form: FormData) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id } });
   await prisma.user.update({ where: { id }, data: { active: !user.active } });
   revalidatePath("/admin/utenti");
+}
+
+/** "Vedi come": l'admin entra nell'app con l'account di un istruttore per vedere cosa vede. */
+export async function impersonate(form: FormData) {
+  const admin = await requireAdmin();
+  const target = await prisma.user.findUnique({ where: { id: str(form, "id") } });
+  if (!target || !target.active || target.role !== "INSTRUCTOR") return;
+  await startSession(target, admin.id);
+  redirect("/calendario");
 }

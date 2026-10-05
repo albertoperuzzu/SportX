@@ -4,7 +4,7 @@ import { Badge, PageHeader } from "@/components/ui";
 import { INITIAL_PASSWORD, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ROLES } from "@/lib/format";
-import { createUser, resetPassword, toggleActive, updateUser } from "./actions";
+import { createUser, impersonate, resetPassword, toggleActive, updateUser } from "./actions";
 import { UserFields } from "./UserFields";
 
 export default async function UsersPage() {
@@ -13,6 +13,8 @@ export default async function UsersPage() {
     orderBy: [{ active: "desc" }, { lastName: "asc" }],
     include: { courses: { where: { active: true }, select: { name: true } } },
   });
+
+  const instructors = users.filter((u) => u.active && u.role === "INSTRUCTOR");
 
   return (
     <>
@@ -42,6 +44,12 @@ export default async function UsersPage() {
                 </ActionForm>
                 {u.id !== me.id && (
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    {u.active && u.role === "INSTRUCTOR" && (
+                      <form action={impersonate}>
+                        <input type="hidden" name="id" value={u.id} />
+                        <SubmitButton className="btn-secondary btn-sm">👁 Vedi come</SubmitButton>
+                      </form>
+                    )}
                     <form action={resetPassword}>
                       <input type="hidden" name="id" value={u.id} />
                       <SubmitButton
@@ -64,15 +72,35 @@ export default async function UsersPage() {
           ))}
         </div>
 
-        <div className="card h-fit">
-          <h2 className="mb-3 font-bold">Nuovo utente</h2>
-          <ActionForm action={createUser} resetOnSuccess className="space-y-3">
-            <UserFields />
-            <p className="text-xs text-slate-500">
-              Al primo accesso userà la password <strong>{INITIAL_PASSWORD}</strong> e dovrà sceglierne una nuova.
-            </p>
-            <SubmitButton className="btn-accent">Crea utente</SubmitButton>
-          </ActionForm>
+        <div className="space-y-6">
+          {instructors.length > 0 && (
+            <div className="card">
+              <h2 className="mb-1 font-bold">Vedi come istruttore</h2>
+              <p className="mb-3 text-xs text-slate-500">
+                Entri nell&apos;app con il suo account per vedere esattamente cosa vede. Puoi tornare indietro dalla barra in alto.
+              </p>
+              <form action={impersonate} className="flex gap-2">
+                <select name="id" className="input" required>
+                  {instructors.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.lastName} {u.firstName}
+                    </option>
+                  ))}
+                </select>
+                <SubmitButton className="btn-secondary whitespace-nowrap">Vedi come</SubmitButton>
+              </form>
+            </div>
+          )}
+          <div className="card h-fit">
+            <h2 className="mb-3 font-bold">Nuovo utente</h2>
+            <ActionForm action={createUser} resetOnSuccess className="space-y-3">
+              <UserFields />
+              <p className="text-xs text-slate-500">
+                Al primo accesso userà la password <strong>{INITIAL_PASSWORD}</strong> e dovrà sceglierne una nuova.
+              </p>
+              <SubmitButton className="btn-accent">Crea utente</SubmitButton>
+            </ActionForm>
+          </div>
         </div>
       </div>
     </>

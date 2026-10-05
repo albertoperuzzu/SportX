@@ -1,7 +1,11 @@
 import { AppShell } from "@/components/AppShell";
-import { requireUser } from "@/lib/auth";
+import { getImpersonator, requireUser } from "@/lib/auth";
 
 export default async function CalendarLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
-  return <AppShell user={user}>{children}</AppShell>;
+  const [user, impersonator] = await Promise.all([requireUser(), getImpersonator()]);
+  return (
+    <AppShell user={user} impersonator={impersonator}>
+      {children}
+    </AppShell>
+  );
 }

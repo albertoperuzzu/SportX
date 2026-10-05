@@ -104,6 +104,7 @@ Il logo "X" Ã¨ ricreato in SVG in `src/components/Logo.tsx`.
 - [x] "Vercel Authentication" disattivata: app pubblica su https://sport-x-sport-x-gestione.vercel.app
 - [x] Abbonamenti (mensile, trimestrale, annuale, carnet) con listino per corso, avvisi istruttore, dashboard rinnovi (2026-10-05)
 - [x] Stato contatto + referente + modulo tesseramento (2026-10-05)
+- [x] "Vedi come" istruttore per gli admin
 - [x] Eliminazione corso (con conferma che elenca cosa viene cancellato; i pagamenti restano senza corso)
 - [x] Script di import del foglio Google "ISCRIZIONE AI CORSI" (`scripts/import-foglio.ts`), provato in locale: 44 righe â†’ 42 persone
 - [ ] **Import in produzione** del foglio (lo lancia Alberto con la stringa Neon, vedi sotto)
